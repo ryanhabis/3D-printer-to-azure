@@ -1,3 +1,4 @@
+
 # Step-by-Step Guide: OctoPrint to Azure  
 
 ## Part 1: Set Up Azure Services  
@@ -55,3 +56,80 @@
 2. Install the Azure IoT SDK:  
    ```bash
    pip install azure-iot-device
+   ```  
+3. Create a file `send_telemetry.py`:  
+   ```python
+   from azure.iot.device import IoTHubDeviceClient
+   import requests
+   import time
+
+   # Azure IoT Hub Connection String
+   CONNECTION_STRING = "[PASTE_DEVICE_CONNECTION_STRING]"
+   # OctoPrint API Key
+   API_KEY = "[PASTE_OCTOPRINT_API_KEY]"
+   OCTOPRINT_URL = "http://localhost/api/printer"
+
+   device_client = IoTHubDeviceClient.create_from_connection_string(CONNECTION_STRING)
+
+   def get_printer_status():
+       headers = {'X-Api-Key': API_KEY}
+       response = requests.get(OCTOPRINT_URL, headers=headers)
+       return response.json()
+
+   while True:
+       status = get_printer_status()
+       device_client.send_message(str(status))
+       print(f"Sent: {status}")
+       time.sleep(60)  # Send every 60 seconds
+   ```  
+4. Run the script:  
+   ```bash
+   python3 send_telemetry.py
+   ```  
+
+### 3.2 Upload Files to Azure Storage (Optional)  
+1. Install Azure Storage SDK:  
+   ```bash
+   pip install azure-storage-blob
+   ```  
+2. Use this script to upload G-code:  
+   ```python
+   from azure.storage.blob import BlobServiceClient
+   import os
+
+   CONNECTION_STRING = "[PASTE_STORAGE_CONNECTION_STRING]"
+   CONTAINER_NAME = "gcode-files"
+
+   blob_service = BlobServiceClient.from_connection_string(CONNECTION_STRING)
+   container_client = blob_service.get_container_client(CONTAINER_NAME)
+
+   def upload_to_azure(file_path):
+       blob_name = os.path.basename(file_path)
+       with open(file_path, "rb") as data:
+           container_client.upload_blob(name=blob_name, data=data)
+       print(f"Uploaded {blob_name} to Azure!")
+
+   # Example: Upload a file when a print starts
+   upload_to_azure("/path/to/your/file.gcode")
+   ```  
+
+---
+
+## Part 4: Verify & Monitor  
+- **IoT Hub**: Use **Azure IoT Explorer** (tool) to see incoming messages.  
+- **Storage**: Check the `gcode-files` container in Azure Portal.  
+- **OctoPrint**: Confirm the MQTT plugin shows a connected status.  
+
+---
+
+## 🛠️ **Troubleshooting**  
+- **MQTT Errors**: Ensure port `8883` is open and credentials are correct.  
+- **API Issues**: Check the OctoPrint API key and network connectivity.  
+- **Azure SDK Errors**: Update packages with `pip install --upgrade azure-iot-device`.  
+
+**Done! Your 3D printer is now cloud-connected!** 🌩️  
+```
+
+---
+
+Let me know if you need adjustments (e.g., more details on security or specific Azure steps)! 🔧
