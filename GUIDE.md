@@ -1,131 +1,180 @@
+# OctoPrint-to-Azure Integration Guide  
+_A complete walkthrough to connect your 3D printer to the cloud._  
 
-# Step-by-Step Guide: OctoPrint to Azure  
+---
 
-## Part 1: Set Up Azure Services  
+## 🎯 **What You’ll Achieve**  
+By the end of this guide, you’ll:  
+1. Send printer telemetry (temperature, status) to Azure IoT Hub.  
+2. (Optional) Upload G-code files to Azure Blob Storage.  
+3. Monitor your printer remotely via Azure.  
+
+---
+
+## 🔧 **Prerequisites**  
+- A working OctoPrint instance (on Raspberry Pi or PC).  
+- An [Azure account](https://azure.microsoft.com/free/).  
+- Basic terminal/Python knowledge.  
+
+---
+
+## Part 1: Azure Setup  
 
 ### 1.1 Create an Azure IoT Hub  
-1. Log in to the [Azure Portal](https://portal.azure.com/).  
-2. Search for **IoT Hub** and click **Create**.  
-3. Fill in:  
-   - **Subscription**: Your Azure subscription.  
-   - **Resource Group**: Create new (e.g., `OctoPrint-Resources`).  
-   - **Region**: Pick the closest to you.  
-   - **IoT Hub Name**: e.g., `OctoPrint-Hub`.  
-4. Click **Review + Create**, then **Create**.  
+1. **Log in to the [Azure Portal](https://portal.azure.com/)**.  
+2. Click **+ Create a resource** > **Internet of Things** > **IoT Hub**.  
+3. Configure settings:  
+   - **Subscription**: Choose your account.  
+   - **Resource Group**: Create new (e.g., `OctoPrint-Cloud`).  
+   - **Region**: Select the closest region (e.g., "East US").  
+   - **IoT Hub Name**: `OctoPrint-Hub` (must be globally unique).  
+4. Click **Review + Create**, then **Create**. Wait 2-3 minutes for deployment.  
 
-### 1.2 Register a Device in IoT Hub  
-1. Go to your IoT Hub > **IoT devices** > **Add Device**.  
-2. Name the device (e.g., `octoprint-pi`).  
-3. Check **Auto-generate keys** and click **Save**.  
-4. Copy the **Device Connection String** (under the device’s details).  
-
-### 1.3 Create Azure Blob Storage (Optional)  
-1. Search for **Storage Account** in Azure Portal and create one.  
-2. Under **Containers**, create a new container named `gcode-files`.  
-3. Copy the **Connection String** (under **Access Keys**).  
+### 1.2 Register Your Printer as an IoT Device  
+1. In your IoT Hub, go to **Explorers** > **IoT devices**.  
+2. Click **+ Add Device**:  
+   - **Device ID**: `octoprint-device` (lowercase, no spaces).  
+   - **Authentication Type**: "Symmetric Key" (default).  
+   - Check **Auto-generate keys**.  
+3. Click **Save**.  
+4. Copy the **Device Connection String** (click the device name > **Connection String**).  
 
 ---
 
 ## Part 2: Configure OctoPrint  
 
 ### 2.1 Install the MQTT Plugin  
-1. Open OctoPrint in your browser.  
-2. Go to **Settings** > **Plugin Manager** > **Get More**.  
-3. Search for `MQTT`, install the **MQTT Plugin**.  
+1. Open OctoPrint in your browser (usually `http://[YOUR_PI_IP]:5000`).  
+2. Go to **Settings** (wrench icon) > **Plugin Manager** > **Get More**.  
+3. Search for `MQTT`, then click **Install** on the "MQTT" plugin.  
 
-### 2.2 Configure MQTT for Azure IoT Hub  
-1. Go to **Settings** > **MQTT**.  
-2. Configure as follows:  
-   - **Broker Host**: `[YourIoTHub].azure-devices.net` (replace with your IoT Hub name).  
-   - **Port**: `8883` (use TLS).  
-   - **Username**: `[YourIoTHub].azure-devices.net/octoprint-pi/?api-version=2021-04-12`.  
+### 2.2 Connect MQTT to Azure IoT Hub  
+1. In OctoPrint, go to **Settings** > **MQTT**.  
+2. Fill in the following:  
+   - **Broker Host**: `[YourIoTHubName].azure-devices.net`  
+     (Replace `[YourIoTHubName]` with your IoT Hub name, e.g., `OctoPrint-Hub.azure-devices.net`).  
+   - **Port**: `8883` (TLS required).  
+   - **Username**: `[YourIoTHubName].azure-devices.net/octoprint-device/?api-version=2021-04-12`  
+     (Replace `[YourIoTHubName]` with your hub name).  
    - **Password**: Paste the **Device Connection String** from Part 1.2.  
-   - **Publish Topic**: `devices/octoprint-pi/messages/events/`.  
+   - **Publish Topic**: `devices/octoprint-device/messages/events/`  
 3. Click **Save**.  
 
-### 2.3 Generate OctoPrint API Key  
-1. Go to **Settings** > **API**.  
-2. Copy the **API Key** (keep this secure!).  
+### 2.3 Enable OctoPrint API  
+1. In OctoPrint, go to **Settings** > **API**.  
+2. Copy the **API Key** (click "Generate New Key" if needed).  
 
 ---
 
 ## Part 3: Send Data to Azure  
 
-### 3.1 Send Telemetry via Python Script  
-1. SSH into your OctoPrint server (e.g., Raspberry Pi).  
-2. Install the Azure IoT SDK:  
+### 3.1 Create a Python Script for Telemetry  
+1. **SSH into your OctoPrint server** (e.g., Raspberry Pi).  
+2. Install required packages:  
    ```bash
-   pip install azure-iot-device
+   pip install azure-iot-device requests
    ```  
-3. Create a file `send_telemetry.py`:  
+3. Create a file `octo_to_azure.py`:  
    ```python
    from azure.iot.device import IoTHubDeviceClient
    import requests
    import time
 
-   # Azure IoT Hub Connection String
-   CONNECTION_STRING = "[PASTE_DEVICE_CONNECTION_STRING]"
-   # OctoPrint API Key
-   API_KEY = "[PASTE_OCTOPRINT_API_KEY]"
+   # Azure IoT Hub Settings
+   CONNECTION_STRING = "[PASTE_DEVICE_CONNECTION_STRING_HERE]"
+   # OctoPrint Settings
+   OCTOPRINT_API_KEY = "[PASTE_OCTOPRINT_API_KEY_HERE]"
    OCTOPRINT_URL = "http://localhost/api/printer"
 
+   # Initialize Azure client
    device_client = IoTHubDeviceClient.create_from_connection_string(CONNECTION_STRING)
 
    def get_printer_status():
-       headers = {'X-Api-Key': API_KEY}
-       response = requests.get(OCTOPRINT_URL, headers=headers)
-       return response.json()
+       headers = {"X-Api-Key": OCTOPRINT_API_KEY}
+       try:
+           response = requests.get(OCTOPRINT_URL, headers=headers)
+           return response.json()
+       except Exception as e:
+           print(f"Error fetching data: {e}")
+           return None
 
    while True:
        status = get_printer_status()
-       device_client.send_message(str(status))
-       print(f"Sent: {status}")
-       time.sleep(60)  # Send every 60 seconds
+       if status:
+           device_client.send_message(str(status))
+           print(f"Sent to Azure: {status}")
+       time.sleep(30)  # Send every 30 seconds
    ```  
-4. Run the script:  
+4. Replace `[PASTE_...]` with your credentials.  
+5. Run the script:  
    ```bash
-   python3 send_telemetry.py
+   python3 octo_to_azure.py
    ```  
 
-### 3.2 Upload Files to Azure Storage (Optional)  
-1. Install Azure Storage SDK:  
+### 3.2 (Optional) Upload Files to Azure Blob Storage  
+1. **Create a Storage Account** in Azure:  
+   - Go to **Storage Accounts** > **+ Create**.  
+   - Name: `octoprintstorage` (unique).  
+   - **Redundancy**: "Locally-redundant storage (LRS)".  
+2. **Create a Container**:  
+   - Go to **Containers** > **+ Container**.  
+   - Name: `gcode-files` (set access to "Blob").  
+3. **Install Storage SDK**:  
    ```bash
    pip install azure-storage-blob
    ```  
-2. Use this script to upload G-code:  
+4. Use this script to upload files:  
    ```python
    from azure.storage.blob import BlobServiceClient
    import os
 
-   CONNECTION_STRING = "[PASTE_STORAGE_CONNECTION_STRING]"
+   STORAGE_CONNECTION_STRING = "[PASTE_STORAGE_CONNECTION_STRING]"
    CONTAINER_NAME = "gcode-files"
 
-   blob_service = BlobServiceClient.from_connection_string(CONNECTION_STRING)
+   # Initialize client
+   blob_service = BlobServiceClient.from_connection_string(STORAGE_CONNECTION_STRING)
    container_client = blob_service.get_container_client(CONTAINER_NAME)
 
-   def upload_to_azure(file_path):
+   def upload_gcode(file_path):
        blob_name = os.path.basename(file_path)
        with open(file_path, "rb") as data:
            container_client.upload_blob(name=blob_name, data=data)
        print(f"Uploaded {blob_name} to Azure!")
 
-   # Example: Upload a file when a print starts
-   upload_to_azure("/path/to/your/file.gcode")
+   # Example: Upload a file
+   upload_gcode("~/my_print.gcode")
    ```  
 
 ---
 
-## Part 4: Verify & Monitor  
-- **IoT Hub**: Use **Azure IoT Explorer** (tool) to see incoming messages.  
-- **Storage**: Check the `gcode-files` container in Azure Portal.  
-- **OctoPrint**: Confirm the MQTT plugin shows a connected status.  
+## Part 4: Verify the Connection  
+
+### 4.1 Monitor IoT Hub Messages  
+1. Install **[Azure IoT Explorer](https://github.com/Azure/azure-iot-explorer/releases)** (desktop tool).  
+2. Open IoT Explorer > **Add Connection String** (use your IoT Hub’s connection string).  
+3. Go to **Telemetry** > Start monitoring. You should see messages like:  
+   ```json
+   {"temperature": {"bed": 60.3, "tool0": 205.1}, "state": "Printing"}
+   ```  
+
+### 4.2 Check Azure Blob Storage (Optional)  
+1. In Azure Portal, go to **Storage Accounts** > **octoprintstorage** > **Containers** > **gcode-files**.  
+2. Verify uploaded files appear here.  
 
 ---
 
-## 🛠️ **Troubleshooting**  
-- **MQTT Errors**: Ensure port `8883` is open and credentials are correct.  
-- **API Issues**: Check the OctoPrint API key and network connectivity.  
-- **Azure SDK Errors**: Update packages with `pip install --upgrade azure-iot-device`.  
+## 🚨 **Troubleshooting**  
+- **MQTT Connection Failed**:  
+  - Ensure port `8883` is open on your network.  
+  - Recheck the Device Connection String and MQTT topic format.  
+- **Script Errors**:  
+  - Run `pip install --upgrade azure-iot-device requests` to update libraries.  
+  - Confirm OctoPrint’s API key has read permissions.  
 
-**Done! Your 3D printer is now cloud-connected!** 🌩️  
-```
+---
+
+## 🏁 **Next Steps**  
+- Trigger Azure Functions when prints start/end ([example guide](https://learn.microsoft.com/en-us/azure/azure-functions)).  
+- Build dashboards with [Azure Power BI](https://powerbi.microsoft.com/) for printer analytics.  
+
+**Congratulations! Your 3D printer is now cloud-powered!** ⚡  
