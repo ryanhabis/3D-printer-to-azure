@@ -129,7 +129,3 @@
 
 **Done! Your 3D printer is now cloud-connected!** 🌩️  
 ```
-
----
-
-Let me know if you need adjustments (e.g., more details on security or specific Azure steps)! 🔧
