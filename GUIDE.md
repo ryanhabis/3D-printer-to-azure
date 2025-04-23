@@ -30,6 +30,12 @@ By the end of this guide, you’ll:
    - **IoT Hub Name**: `OctoPrint-Hub` (must be globally unique).  
 4. Click **Review + Create**, then **Create**. Wait 2-3 minutes for deployment.  
 
+### It should look like this.
+
+![RS_Group Create](https://github.com/user-attachments/assets/101277ff-0ae3-4990-acbb-10417ef29ad2)
+
+---
+
 ### 1.2 Register Your Printer as an IoT Device  
 1. In your IoT Hub, go to **Explorers** > **IoT devices**.  
 2. Click **+ Add Device**:  
@@ -39,6 +45,10 @@ By the end of this guide, you’ll:
 3. Click **Save**.  
 4. Copy the **Device Connection String** (click the device name > **Connection String**).  
 
+This is what is should look like once you set up **azure IoT Hub** and the **Resource group**.
+
+![RS_Group Create + IoT Hub](https://github.com/user-attachments/assets/3cb0a028-e3a5-4855-a8bf-d01336a535ca)
+
 ---
 
 ## Part 2: Configure OctoPrint  
@@ -47,6 +57,13 @@ By the end of this guide, you’ll:
 1. Open OctoPrint in your browser (usually `http://[YOUR_PI_IP]:5000`).  
 2. Go to **Settings** (wrench icon) > **Plugin Manager** > **Get More**.  
 3. Search for `MQTT`, then click **Install** on the "MQTT" plugin.  
+
+**[MQTT plugin](plugins.octoprint.org/plugins/mqtt/)**
+
+What the application looks like.
+
+![MQTT example data](https://github.com/user-attachments/assets/5e941577-7b94-4e42-8230-28e9ff64bbb6)
+
 
 ### 2.2 Connect MQTT to Azure IoT Hub  
 1. In OctoPrint, go to **Settings** > **MQTT**.  
