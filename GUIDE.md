@@ -90,7 +90,11 @@ What the application looks like.
 2. Install required packages:  
    ```bash
    pip install azure-iot-device requests
-   ```  
+   ```
+   
+![installing iot device git](https://github.com/user-attachments/assets/0db53eda-8864-43d1-b421-c1442b1a7b0e)
+
+   
 3. Create a file `octo_to_azure.py`:  
    ```python
    from azure.iot.device import IoTHubDeviceClient
