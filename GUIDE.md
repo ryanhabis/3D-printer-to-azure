@@ -143,7 +143,8 @@ What the application looks like.
 3. **Install Storage SDK**:  
    ```bash
    pip install azure-storage-blob
-   ```  
+   ```
+   
 4. Use this script to upload files:  
    ```python
    from azure.storage.blob import BlobServiceClient
@@ -165,6 +166,16 @@ What the application looks like.
    # Example: Upload a file
    upload_gcode("~/my_print.gcode")
    ```  
+
+**This is what it looks**
+
+
+![octoprint to azure data send](https://github.com/user-attachments/assets/f3d817cc-9e00-4506-b7ba-28815968cd1a)
+
+
+
+![showing graphs on azure](https://github.com/user-attachments/assets/b6d5446b-8b81-4226-9bac-b73a8077f3cd)
+
 
 ---
 
